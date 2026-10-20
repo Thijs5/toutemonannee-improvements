@@ -7,7 +7,7 @@
 // @supportURL   https://github.com/Thijs5/toutemonannee-improvements/issues
 // @namespace    tma-dl
 // @match        https://www.toutemonannee.com/*
-// @version      0.0.0
+// @version      1.4.0
 // @grant        GM.xmlHttpRequest
 // @grant        GM_xmlhttpRequest
 // @run-at       document-idle
