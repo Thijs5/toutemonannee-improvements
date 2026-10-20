@@ -7,7 +7,7 @@
 // @supportURL   https://github.com/Thijs5/toutemonannee-improvements/issues
 // @namespace    tma-dl
 // @match        https://www.toutemonannee.com/*
-// @version      1.3
+// @version      1.4
 // @grant        GM.xmlHttpRequest
 // @grant        GM_xmlhttpRequest
 // @run-at       document-idle
@@ -23,7 +23,7 @@
   const log = (msg) => console.log(`%c[TMA-DL] ✓ ${msg}`, 'color: #00aa00; font-weight: bold;');
   const error = (msg) => console.error(`%c[TMA-DL] ✗ ${msg}`, 'color: #ff0000; font-weight: bold;');
 
-  const toHd = u => u.replace('/thumbs/', '/hd/');
+  const toHd = u => u.replace(/\/(thumbs|web)\//, '/hd/');
   const baseName = u => u.split('/').pop().split('?')[0];
   const lastmod = u => (u.match(/[?&]lastmod=(\d+)/) || [])[1];
 
@@ -51,8 +51,14 @@
     if (!lightbox) return null;
 
     // The lightbox also contains neighboring slides. Use its selected thumbnail.
-    const img = lightbox.querySelector('button[aria-current="true"] img') ||
-                lightbox.querySelector('.Mu.Xu img.Yu');
+    let img = lightbox.querySelector('button[aria-current="true"] img');
+    if (!img) {
+      // Single-photo galleries have no thumbnail strip. Avoid choosing a
+      // neighboring slide when multiple distinct photos are mounted.
+      const photos = [...lightbox.querySelectorAll('img')].filter(el => !el.closest('button'));
+      const urls = new Set(photos.map(el => el.currentSrc || el.src).filter(Boolean));
+      if (urls.size === 1) img = photos[0];
+    }
     const url = img && (img.currentSrc || img.src);
     return url ? toHd(url) : null;
   }
@@ -163,12 +169,15 @@
 
   const mkBtn = (label, title, icon, fn) => {
     const b = document.createElement('button');
-    b.className = 'Nr tma-dl-btn';
+    b.className = 'tma-dl-btn';
     b.title = title;
     b.type = 'button';
     b.style.display = 'flex';
     b.style.alignItems = 'center';
     b.style.gap = '0.3em';
+    b.style.width = 'auto';
+    b.style.flexShrink = '0';
+    b.style.padding = '0 0.6em';
     
     const iconSpan = document.createElement('span');
     iconSpan.innerHTML = icon;
@@ -189,40 +198,33 @@
   };
 
   function findToolbar() {
-    // Look ONLY inside the lightbox
-    const lightbox = document.querySelector('[role="dialog"][aria-modal="true"]') || 
-                     document.querySelector('.Vu');
-    
-    if (!lightbox) return null; // Silent fail - lightbox not open yet
+    const lightbox = document.querySelector(
+      '[role="dialog"][aria-modal="true"][aria-label="Visionneuse"]'
+    );
+    if (!lightbox) return null;
 
-    const selectors = [
-      '[role="toolbar"]',
-      '.Uu',
-    ];
+    const toolbar = lightbox.querySelector('[role="toolbar"]');
+    if (toolbar) return toolbar;
 
-    for (const sel of selectors) {
-      const el = lightbox.querySelector(sel);
-      if (el) return el;
-    }
-
-    error('Toolbar not found inside lightbox');
-    return null;
+    // CSS module class names change on site releases. The close icon is a
+    // stable, language-independent anchor in the viewer's control group.
+    const close = lightbox.querySelector('button svg[data-icon="xmark"]');
+    return close ? close.closest('button').parentElement : null;
   }
 
   function inject() {
-    // Check if buttons already exist in DOM - if so, skip
-    if (document.querySelector('.tma-dl-btn')) return;
-
     const bar = findToolbar();
-    
-    if (!bar) return; // Silent fail - lightbox or toolbar not found
+    if (!bar || bar.querySelector('.tma-dl-btn')) return;
 
     try {
       const btn1 = mkBtn('Download', 'Download this photo (D)', downloadSvg, saveCurrent);
       const btn2 = mkBtn('Download All', 'Download all photos', downloadSvg, saveAll);
       
-      bar.appendChild(btn1);
-      bar.appendChild(btn2);
+      const nativeButton = bar.querySelector('button:has(svg[data-icon="xmark"])') || bar.querySelector('button');
+      for (const button of [btn1, btn2]) {
+        if (nativeButton) button.className = `${nativeButton.className} tma-dl-btn`;
+        bar.appendChild(button);
+      }
       
       log('Buttons added to toolbar');
     } catch (e) {

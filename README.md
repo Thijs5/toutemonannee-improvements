@@ -48,6 +48,13 @@ Example: `20260921T211500_001_abc123def.jpg`
 - `###` = Sequence number (batch downloads only)
 - `hash` = Original filename hash
 
+## Compatibility
+
+Version 1.4 restores the buttons after the October 2026 viewer update. The script
+locates the viewer and selected photo through accessibility attributes and the
+Close icon, instead of generated CSS class names. Button styling is copied from
+an existing viewer control.
+
 ## Troubleshooting
 
 ### No buttons showing up?
