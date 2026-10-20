@@ -93,8 +93,8 @@ workflow has been pushed to `main`:
 ```sh
 git switch main
 git pull --ff-only
-git tag v1.4.0
-git push origin v1.4.0
+git tag v1.4.1
+git push origin v1.4.1
 ```
 
 Check the [Actions tab](https://github.com/Thijs5/toutemonannee-improvements/actions)

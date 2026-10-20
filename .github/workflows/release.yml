@@ -42,10 +42,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release.json"; then
-            if jq -e '.isDraft == false' "$RUNNER_TEMP/release.json" > /dev/null; then
-              echo 'published=true' >> "$GITHUB_OUTPUT"
-            fi
+          # Abort on API errors before touching the tag. Include every page so
+          # rerunning an old release is protected too.
+          gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          if jq -e --arg tag "$RELEASE_TAG" 'any(.[][]; .tag_name == $tag and .draft == false)' "$RUNNER_TEMP/releases.json" > /dev/null; then
+            echo 'published=true' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Stamp tagged source for Greasy Fork
