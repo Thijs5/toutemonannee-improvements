@@ -73,18 +73,28 @@ an existing viewer control.
 The source uses `@version 0.0.0` as a development placeholder. Do not update it
 manually. Pushing a stable version tag runs
 [the release workflow](.github/workflows/release.yml), which sets the version in
-the release copy, validates its JavaScript, uploads `tma-downloader.user.js` to a
-draft GitHub Release, and then publishes it. The repository source stays unchanged.
+the release copy and validates its JavaScript. It creates a release commit with
+the stamped source and moves the newly pushed tag to that commit, then uploads
+`tma-downloader.user.js` to a draft GitHub Release and publishes it. The source on
+`main` stays unchanged. Treat the tag as final once the workflow completes; after
+a release is published, reruns never move its tag.
 
-Tags can be `v1.4`, `1.4`, or `v1.4.1`; prerelease tags are rejected. Use a version
+Greasy Fork's release webhook reads the tagged repository file, even when the
+sync URL points at a release asset. The generated release commit ensures both
+copies contain the same version. Tag updates use a lease so concurrent changes
+are rejected. Repository rules must allow GitHub Actions to update unpublished
+release tags.
+
+Tags use `vMAJOR.MINOR.PATCH`, for example `v1.4.0` or `v1.4.1`.
+Short versions, tags without the `v` prefix, and prerelease tags are rejected. Use a version
 higher than the one currently published on Greasy Fork. For example, after the
 workflow has been pushed to `main`:
 
 ```sh
 git switch main
 git pull --ff-only
-git tag v1.4
-git push origin v1.4
+git tag v1.4.0
+git push origin v1.4.0
 ```
 
 Check the [Actions tab](https://github.com/Thijs5/toutemonannee-improvements/actions)
@@ -114,8 +124,8 @@ See [Greasy Fork's official webhook instructions](https://github.com/greasyfork-
 To check release preparation locally without publishing:
 
 ```sh
-node --test .github/scripts/prepare-release.test.mjs
-node .github/scripts/prepare-release.mjs v1.4 tma-downloader.user.js /tmp/tma-release/tma-downloader.user.js
+node --test .github/scripts/*.test.mjs
+node .github/scripts/prepare-release.mjs v1.4.0 tma-downloader.user.js /tmp/tma-release/tma-downloader.user.js
 node --check /tmp/tma-release/tma-downloader.user.js
 ```
 

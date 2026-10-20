@@ -3,8 +3,7 @@ name: Release userscript
 on:
   push:
     tags:
-      - 'v*'
-      - '[0-9]*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
 
 permissions:
   contents: write
@@ -27,7 +26,7 @@ jobs:
           node-version: '24'
 
       - name: Test release preparation
-        run: node --test .github/scripts/prepare-release.test.mjs
+        run: node --test .github/scripts/*.test.mjs
 
       - name: Prepare and validate release asset
         env:
@@ -36,7 +35,28 @@ jobs:
           node .github/scripts/prepare-release.mjs "$RELEASE_TAG" tma-downloader.user.js dist/tma-downloader.user.js
           node --check dist/tma-downloader.user.js
 
+      - name: Check whether release is already published
+        id: release_state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release.json"; then
+            if jq -e '.isDraft == false' "$RUNNER_TEMP/release.json" > /dev/null; then
+              echo 'published=true' >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Stamp tagged source for Greasy Fork
+        if: steps.release_state.outputs.published != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: bash .github/scripts/stamp-release-tag.sh "$RELEASE_TAG" dist/tma-downloader.user.js
+
       - name: Upload asset before publishing release
+        if: steps.release_state.outputs.published != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

@@ -16,7 +16,9 @@
 // ==/UserScript==
 
 // Development placeholder: do not bump @version here. The release workflow
-// fills it in from the Git tag (e.g. v1.5 -> 1.5) in the published release asset.
+// fills it in from the Git tag (e.g. v1.5.0 -> 1.5.0) in the release asset and
+// a generated release commit. Only the release tag moves to that commit; main
+// keeps this placeholder so Greasy Fork receives the correct tagged version.
 
 (function () {
   'use strict';

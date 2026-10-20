@@ -2,8 +2,8 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const [tag, source, destination] = process.argv.slice(2);
-if (!/^v?(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?$/.test(tag ?? '') || tag.trim() !== tag) {
-  throw new Error('Expected a stable version tag such as v1.4 or v1.4.1 (v is optional).');
+if (!/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tag ?? '') || tag.trim() !== tag) {
+  throw new Error('Expected a stable semantic version tag such as v1.4.0 or v1.4.1.');
 }
 if (!source || !destination || source === destination) {
   throw new Error('Provide separate source and release output paths.');

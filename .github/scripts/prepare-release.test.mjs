@@ -20,7 +20,7 @@ function prepare(t, tag, code = original) {
   return { result, output };
 }
 
-for (const tag of ['v1.5', '1.5', 'v1.5.2']) {
+for (const tag of ['v1.5.0', 'v1.5.2', 'v2.0.0']) {
   test(`stamps ${tag} into only the release metadata`, t => {
     const { result, output } = prepare(t, tag);
     assert.equal(result.status, 0, result.stderr);
@@ -28,7 +28,7 @@ for (const tag of ['v1.5', '1.5', 'v1.5.2']) {
   });
 }
 
-for (const tag of ['v1', 'v01.5', 'v1.5-beta', 'v1.5\n', 'v1.5;echo unsafe']) {
+for (const tag of ['v1', 'v1.5', '1.5.0', 'v01.5.0', 'v1.5.0-beta', 'v1.5.0\n', 'v1.5.0;echo unsafe']) {
   test(`rejects unsupported tag ${JSON.stringify(tag)} before writing an asset`, t => {
     const { result, output } = prepare(t, tag);
     assert.notEqual(result.status, 0);
@@ -38,7 +38,7 @@ for (const tag of ['v1', 'v01.5', 'v1.5-beta', 'v1.5\n', 'v1.5;echo unsafe']) {
 
 for (const code of [original.replace('// @version      1.0\n', ''), original.replace('// @name Example', '// @version 2.0')]) {
   test('rejects missing or duplicate version metadata', t => {
-    const { result, output } = prepare(t, 'v1.5', code);
+    const { result, output } = prepare(t, 'v1.5.0', code);
     assert.notEqual(result.status, 0);
     assert.equal(existsSync(output), false);
   });
