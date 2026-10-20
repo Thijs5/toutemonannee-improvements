@@ -1,0 +1,56 @@
+name: Release userscript
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '[0-9]*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: userscript-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Test release preparation
+        run: node --test .github/scripts/prepare-release.test.mjs
+
+      - name: Prepare and validate release asset
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node .github/scripts/prepare-release.mjs "$RELEASE_TAG" tma-downloader.user.js dist/tma-downloader.user.js
+          node --check dist/tma-downloader.user.js
+
+      - name: Upload asset before publishing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release.json"; then
+            if ! jq -e '.isDraft' "$RUNNER_TEMP/release.json" > /dev/null; then
+              echo "Release is already published; leaving it unchanged."
+              exit 0
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "$RELEASE_TAG" --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" dist/tma-downloader.user.js --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest

@@ -7,13 +7,16 @@
 // @supportURL   https://github.com/Thijs5/toutemonannee-improvements/issues
 // @namespace    tma-dl
 // @match        https://www.toutemonannee.com/*
-// @version      1.4
+// @version      0.0.0
 // @grant        GM.xmlHttpRequest
 // @grant        GM_xmlhttpRequest
 // @run-at       document-idle
 // @downloadURL https://update.greasyfork.org/scripts/596836/TMA%20gallery%20downloader.user.js
 // @updateURL https://update.greasyfork.org/scripts/596836/TMA%20gallery%20downloader.meta.js
 // ==/UserScript==
+
+// Development placeholder: do not bump @version here. The release workflow
+// fills it in from the Git tag (e.g. v1.5 -> 1.5) in the published release asset.
 
 (function () {
   'use strict';

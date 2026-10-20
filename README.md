@@ -21,7 +21,7 @@ Download photos from TouteMonAnnée galleries with one click.
 2. Click here to install: **[TMA Gallery Downloader on Greasy Fork](https://greasyfork.org/en/scripts/596836-tma-gallery-downloader)**
 
 ### Manual Installation
-1. Copy the raw script: [tma-downloader.user.js](https://github.com/Thijs5/toutemonannee-improvements/blob/main/tma-downloader.user.js)
+1. Download `tma-downloader.user.js` from the [latest GitHub release](https://github.com/Thijs5/toutemonannee-improvements/releases/latest). The file on `main` is a development copy with a placeholder version.
 2. Open Tampermonkey/Greasemonkey dashboard
 3. Click "Create new script"
 4. Paste the code
@@ -67,6 +67,57 @@ an existing viewer control.
 - Console will show exact error reason
 - Check your internet connection
 - Try downloading again
+
+## Releasing
+
+The source uses `@version 0.0.0` as a development placeholder. Do not update it
+manually. Pushing a stable version tag runs
+[the release workflow](.github/workflows/release.yml), which sets the version in
+the release copy, validates its JavaScript, uploads `tma-downloader.user.js` to a
+draft GitHub Release, and then publishes it. The repository source stays unchanged.
+
+Tags can be `v1.4`, `1.4`, or `v1.4.1`; prerelease tags are rejected. Use a version
+higher than the one currently published on Greasy Fork. For example, after the
+workflow has been pushed to `main`:
+
+```sh
+git switch main
+git pull --ff-only
+git tag v1.4
+git push origin v1.4
+```
+
+Check the [Actions tab](https://github.com/Thijs5/toutemonannee-improvements/actions)
+for the result. A failed upload leaves the release as a draft; rerunning the job
+can finish it. Already-published releases are left unchanged on reruns.
+
+### One-time Greasy Fork setup
+
+1. Sign in as the owner of [TMA Gallery Downloader](https://greasyfork.org/en/scripts/596836-tma-gallery-downloader).
+2. Open its code synchronization settings and set the sync URL to:
+   `https://github.com/Thijs5/toutemonannee-improvements/releases/latest/download/tma-downloader.user.js`.
+   Use webhook synchronization rather than automatic polling of `main`.
+3. Open Greasy Fork's webhook instructions from your account and copy the payload
+   URL and webhook secret it provides.
+4. In the [repository webhook settings](https://github.com/Thijs5/toutemonannee-improvements/settings/hooks),
+   add a webhook with that payload URL and secret, content type `application/json`,
+   and only the **Releases** event enabled. Leave it active.
+5. Push your first release tag. Once the release is published, check the webhook
+   delivery and the script version on Greasy Fork. If Greasy Fork needs an existing
+   asset to accept the sync URL, finish saving its sync settings after this first
+   release, then trigger an initial sync manually.
+
+No additional GitHub Actions secrets are needed; the workflow uses the built-in
+`GITHUB_TOKEN` with `contents: write`. GitHub Actions must be enabled for the repo.
+See [Greasy Fork's official webhook instructions](https://github.com/greasyfork-org/greasyfork/blob/main/app/views/users/webhook_info.html.erb).
+
+To check release preparation locally without publishing:
+
+```sh
+node --test .github/scripts/prepare-release.test.mjs
+node .github/scripts/prepare-release.mjs v1.4 tma-downloader.user.js /tmp/tma-release/tma-downloader.user.js
+node --check /tmp/tma-release/tma-downloader.user.js
+```
 
 ## License
 
