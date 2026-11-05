@@ -25,8 +25,11 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Test release preparation
-        run: node --test .github/scripts/*.test.mjs
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Test downloader and release preparation
+        run: npm test
 
       - name: Prepare and validate release asset
         env:

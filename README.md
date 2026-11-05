@@ -36,6 +36,7 @@ Download photos from TouteMonAnnée galleries with one click.
 ### Download All Photos
 - Click the **⬇ All** button in the lightbox toolbar
 - Confirm when prompted
+- Only photos in the open gallery are downloaded, in gallery order
 - Photos download with delays between requests
 
 ## Filename Format
@@ -54,6 +55,20 @@ Version 1.4 restores the buttons after the October 2026 viewer update. The scrip
 locates the viewer and selected photo through accessibility attributes and the
 Close icon, instead of generated CSS class names. Button styling is copied from
 an existing viewer control.
+
+The downloader identifies the viewer using its dialog, controls and gallery
+counter, without depending on translated labels or generated CSS class names.
+It reads the open viewer's thumbnails, even when the strip is hidden, and
+handles single-photo galleries without thumbnails. It does not collect
+unrelated images from other posts. The `D` shortcut works only while viewing
+a photo and leaves text fields and browser shortcuts alone.
+
+If fewer photos are found than the viewer reports, a warning appears before
+the download and in its final summary. If the total cannot be read, the script
+warns that completeness is unverified. You can cancel or download the available
+photos. Full-size URLs already in the viewer are preferred; thumbnail URL
+conversion is a fallback. Download responses must decode as images, so login
+pages and server error pages are not saved as photos.
 
 ## Troubleshooting
 
@@ -124,7 +139,9 @@ See [Greasy Fork's official webhook instructions](https://github.com/greasyfork-
 To check release preparation locally without publishing:
 
 ```sh
-node --test .github/scripts/*.test.mjs
+npm ci
+npm test
+npm run check
 node .github/scripts/prepare-release.mjs v1.4.0 tma-downloader.user.js /tmp/tma-release/tma-downloader.user.js
 node --check /tmp/tma-release/tma-downloader.user.js
 ```

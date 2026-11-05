@@ -1,0 +1,11 @@
+{
+  "name": "tma-gallery-downloader",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.mjs .github/scripts/*.test.mjs",
+    "check": "node --check tma-downloader.user.js"
+  },
+  "devDependencies": {
+    "linkedom": "0.18.12"
+  }
+}

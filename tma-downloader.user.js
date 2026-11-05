@@ -49,32 +49,113 @@
     return parts.join('_');
   }
 
-  function getCurrentImage() {
-    const lightbox = document.querySelector(
-      '[role="dialog"][aria-modal="true"][aria-label="Visionneuse"]'
-    );
-    if (!lightbox) return null;
+  const imageUrl = img => img && (img.currentSrc || img.src);
+  const controlSelector = 'button, [role="button"], [role="tab"]';
+  const thumbnailSelector = '[aria-current] img, [aria-selected] img, img[aria-current], img[aria-selected]';
 
-    // The lightbox also contains neighboring slides. Use its selected thumbnail.
-    let img = lightbox.querySelector('button[aria-current="true"] img');
-    if (!img) {
-      // Single-photo galleries have no thumbnail strip. Avoid choosing a
-      // neighboring slide when multiple distinct photos are mounted.
-      const photos = [...lightbox.querySelectorAll('img')].filter(el => !el.closest('button'));
-      const urls = new Set(photos.map(el => el.currentSrc || el.src).filter(Boolean));
-      if (urls.size === 1) img = photos[0];
-    }
-    const url = img && (img.currentSrc || img.src);
-    return url ? toHd(url) : null;
+  function getCounter(lightbox) {
+    const counters = [...lightbox.querySelectorAll('[aria-live], [role="status"]')]
+      .map(el => el.textContent.match(/^\s*(\d+)\s*\/\s*(\d+)\s*$/))
+      .filter(Boolean)
+      .map(match => ({ current: Number(match[1]), total: Number(match[2]) }))
+      .filter(({ current, total }) => current > 0 && total >= current && Number.isSafeInteger(total));
+    if (!counters.length) return null;
+    const first = counters[0];
+    return counters.every(c => c.current === first.current && c.total === first.total) ? first : null;
   }
 
-  function getAllGalleryImages() {
-    const allImages = document.querySelectorAll('img[src*="toutemonannee"][src*="thumbs"]');
-    const urls = new Set();
-    allImages.forEach(img => {
-      if (img.src) urls.add(toHd(img.src));
+  function getSlideImages(lightbox) {
+    return [...lightbox.querySelectorAll('img')].filter(img =>
+      !img.closest(`${controlSelector}, [aria-current], [aria-selected]`) && imageUrl(img));
+  }
+
+  function getLightbox() {
+    // Accessible names are translated copy, not identifiers. Require multiple
+    // viewer signals and refuse ambiguous matches instead of guessing a dialog.
+    const candidates = [...document.querySelectorAll('[role="dialog"], dialog[open]')].filter(el => {
+      if (!el.getClientRects().length || getComputedStyle(el).visibility === 'hidden') return false;
+      if (!el.querySelector('img')) return false;
+      const toolbar = el.querySelector('[role="toolbar"]');
+      const close = el.querySelector('button svg[data-icon="xmark"]');
+      return (toolbar || close) && (getCounter(el) || el.querySelector(thumbnailSelector) || (toolbar && close));
     });
-    return [...urls];
+    return candidates.length === 1 ? candidates[0] : null;
+  }
+
+  function imageKey(url) {
+    // Keep the original download URL (including signed query parameters).
+    // Only normalize its path for matching a preview to a mounted full image.
+    try {
+      return toHd(new URL(url, document.baseURI).pathname);
+    } catch {
+      return url;
+    }
+  }
+
+  function fullImageUrl(img, lightbox) {
+    const url = imageUrl(img);
+    if (!url) return null;
+    const full = getSlideImages(lightbox).find(slide => imageKey(imageUrl(slide)) === imageKey(url));
+    return full ? imageUrl(full) : toHd(url);
+  }
+
+  function getCurrentImage(lightbox = getLightbox()) {
+    if (!lightbox) return null;
+    const selected = [...lightbox.querySelectorAll(thumbnailSelector)].filter(img => {
+      const marker = img.closest('[aria-current], [aria-selected]');
+      const current = marker.getAttribute('aria-current');
+      return (current && current !== 'false') || marker.getAttribute('aria-selected') === 'true';
+    });
+    const urls = [...new Set(selected.map(img => fullImageUrl(img, lightbox)).filter(Boolean))];
+    if (urls.length === 1) return urls[0];
+    if (urls.length > 1) return null;
+
+    // Without selection markers, accept only one visible slide. Neighboring
+    // slides are also mounted; during an animation more than one may be visible.
+    const box = lightbox.getBoundingClientRect();
+    const visible = getSlideImages(lightbox).filter(img => {
+      const rect = img.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 &&
+        Math.min(rect.right, box.right, innerWidth) > Math.max(rect.left, box.left, 0) &&
+        Math.min(rect.bottom, box.bottom, innerHeight) > Math.max(rect.top, box.top, 0) &&
+        getComputedStyle(img).visibility !== 'hidden' && getComputedStyle(img).display !== 'none';
+    });
+    const visibleUrls = [...new Set(visible.map(imageUrl))];
+    return visibleUrls.length === 1 ? visibleUrls[0] : null;
+  }
+
+  function getGallery(lightbox = getLightbox()) {
+    if (!lightbox) return { urls: [], total: null };
+    const urls = [...new Set([...lightbox.querySelectorAll(thumbnailSelector)]
+      .map(img => fullImageUrl(img, lightbox)).filter(Boolean))];
+    if (!urls.length) {
+      const current = getCurrentImage(lightbox);
+      if (current) urls.push(current);
+    }
+    return { urls, total: getCounter(lightbox)?.total ?? null };
+  }
+
+  function galleryWarning({ urls, total }) {
+    if (total === null) return 'The gallery total could not be verified. Some photos may be missing.';
+    if (urls.length < total) return `Only ${urls.length} of ${total} photos were found. ${total - urls.length} photos are missing from this download.`;
+    if (urls.length > total) return `Found ${urls.length} photos, but the viewer reports ${total}. The gallery contents could not be verified.`;
+    return '';
+  }
+
+  async function validateImage(response) {
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText || 'Request failed'}`);
+    }
+    const blob = response.response;
+    if (!(blob instanceof Blob) || !blob.size) throw new Error('The server returned an empty or invalid image');
+    const type = blob.type.toLowerCase().split(';')[0].trim();
+    if (type && !type.startsWith('image/') && type !== 'application/octet-stream' && type !== 'binary/octet-stream') {
+      throw new Error(`Expected a photo, but the server returned ${type}`);
+    }
+    // MIME types alone cannot detect a login/error page mislabeled as an image.
+    const bitmap = await createImageBitmap(blob);
+    bitmap.close();
+    return blob;
   }
 
   function save(url, filename) {
@@ -89,14 +170,11 @@
         url,
         responseType: 'blob',
         timeout: 30000,
-        onload(r) {
-          if (r.status >= 400) {
-            rej(`HTTP ${r.status}: ${r.statusText || 'Request failed'}`);
-            return;
-          }
+        async onload(r) {
           try {
-            const sizeKB = (r.response.size / 1024).toFixed(1);
-            const b = URL.createObjectURL(r.response);
+            const blob = await validateImage(r);
+            const sizeKB = (blob.size / 1024).toFixed(1);
+            const b = URL.createObjectURL(blob);
             const a = Object.assign(document.createElement('a'), { href: b, download: filename });
             document.body.appendChild(a);
             a.click();
@@ -135,14 +213,16 @@
   }
 
   async function saveAll() {
-    const urls = getAllGalleryImages();
+    const gallery = getGallery();
+    const { urls, total } = gallery;
+    const warning = galleryWarning(gallery);
     if (!urls.length) {
       error('No gallery images found');
-      alert('No gallery images found');
+      alert(`No gallery images found.\n${warning}`);
       return;
     }
 
-    if (!confirm(`Download ${urls.length} photos?`)) return;
+    if (!confirm(`${warning ? `Warning: ${warning}\n\n` : ''}Download ${urls.length} photos?`)) return;
 
     let success = 0;
     let failed = 0;
@@ -160,13 +240,13 @@
       await new Promise(r => setTimeout(r, 400));
     }
 
-    if (failed === 0) {
+    if (failed === 0 && !warning) {
       log(`Downloaded all ${success} photos`);
     } else {
-      error(`Downloaded ${success}/${urls.length}. Failed items:\n${failures.join('\n')}`);
+      error(`Downloaded ${success}/${total ?? urls.length}. ${warning}\n${failures.join('\n')}`);
     }
 
-    alert(`✓ Downloaded: ${success}\n✗ Failed: ${failed}`);
+    alert(`✓ Downloaded: ${success}${total !== null ? ` of ${total}` : ''}\n✗ Failed requests: ${failed}${warning ? `\n\nWarning: ${warning}` : ''}`);
   }
 
   // SVG icon
@@ -203,9 +283,7 @@
   };
 
   function findToolbar() {
-    const lightbox = document.querySelector(
-      '[role="dialog"][aria-modal="true"][aria-label="Visionneuse"]'
-    );
+    const lightbox = getLightbox();
     if (!lightbox) return null;
 
     const toolbar = lightbox.querySelector('[role="toolbar"]');
@@ -237,14 +315,23 @@
     }
   }
 
-  setTimeout(inject, 500);
-  new MutationObserver(() => {
-    clearTimeout(inject._timeout);
-    inject._timeout = setTimeout(inject, 500);
-  }).observe(document.body, { childList: true, subtree: true });
+  let injectionPending = false;
+  function scheduleInject() {
+    if (injectionPending) return;
+    injectionPending = true;
+    setTimeout(() => {
+      injectionPending = false;
+      inject();
+    }, 100);
+  }
+  scheduleInject();
+  new MutationObserver(scheduleInject).observe(document.body, { childList: true, subtree: true });
 
   document.addEventListener('keydown', e => {
-    if (e.key.toLowerCase() === 'd' && !/^(input|textarea)$/i.test(e.target.tagName)) {
+    if (e.key.toLowerCase() === 'd' && !e.repeat && !e.defaultPrevented &&
+        !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey &&
+        !e.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]') &&
+        getCurrentImage()) {
       e.preventDefault();
       saveCurrent();
     }
