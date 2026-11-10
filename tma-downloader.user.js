@@ -8,7 +8,7 @@
 // @namespace    tma-dl
 // @match        https://toutemonannee.com/*
 // @match        https://www.toutemonannee.com/*
-// @version      0.0.0
+// @version      1.4.2
 // @grant        GM.xmlHttpRequest
 // @grant        GM_xmlhttpRequest
 // @run-at       document-idle
