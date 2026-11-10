@@ -51,8 +51,8 @@ Example: `20260921T211500_001_abc123def.jpg`
 
 ## Compatibility
 
-The script runs on both `https://toutemonannee.com` and
-`https://www.toutemonannee.com`.
+The script runs on `https://toutemonannee.com` and all its HTTPS subdomains
+using the match pattern `https://*.toutemonannee.com/*`.
 
 Version 1.4 restores the buttons after the October 2026 viewer update. The script
 locates the viewer and selected photo through accessibility attributes and the
